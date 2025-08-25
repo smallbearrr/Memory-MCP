@@ -35,115 +35,10 @@ class StorageError(Exception):
         self.details = details or {}
 
 
-class MockMemoryStorage(MemoryStorageInterface):
-    """
-    简化的内存存储实现（用于测试）
-    """
-    
-    def __init__(self):
-        self._memories = {}
-        self._task_counter = 1
-    
-    async def save_memory(self, request: SaveMemoryRequest) -> SaveMemoryResponse:
-        """保存记忆到内存"""
-        from datetime import datetime
-        
-        # 生成task_id（如果没有提供related_task_id）
-        task_id = request.related_task_id or self._task_counter
-        if not request.related_task_id:
-            self._task_counter += 1
-        
-        # 生成context_id
-        context_id = f"{task_id}_{request.memory_type.value}"
-        
-        # 创建记忆对象
-        created_at = datetime.utcnow()
-        
-        # 存储记忆
-        memory_data = {
-            "task_id": task_id,
-            "memory_type": request.memory_type,
-            "content": request.content,
-            "created_at": created_at,
-            "meta": {
-                "importance": request.importance.value,
-                "tags": request.tags or []
-            }
-        }
-        
-        self._memories[context_id] = memory_data
-        
-        return SaveMemoryResponse(
-            context_id=context_id,
-            task_id=task_id,
-            memory_type=request.memory_type,
-            content=request.content,
-            created_at=created_at,
-            embedding_generated=True  # Mock实现不生成嵌入
-        )
-    
-    async def query_memory(self, request: QueryMemoryRequest) -> QueryMemoryResponse:
-        """从内存中查询记忆"""
-        from ..models.memory import MemoryItem
-        
-        filtered_memories = []
-        search_text_lower = request.search_text.lower()
-        
-        for context_id, memory_data in self._memories.items():
-            # 内容搜索
-            if search_text_lower not in memory_data["content"].lower():
-                continue
-            
-            # 记忆类型过滤
-            if request.memory_types and memory_data["memory_type"] not in request.memory_types:
-                continue
-            
-            # 计算简单的相似度分数（基于关键词匹配）
-            similarity = self._calculate_similarity(request.search_text, memory_data["content"])
-            
-            # 相似度阈值过滤
-            if similarity < request.min_similarity:
-                continue
-            
-            memory_item = MemoryItem(
-                task_id=memory_data["task_id"],
-                memory_type=memory_data["memory_type"],
-                content=memory_data["content"],
-                similarity=similarity,
-                created_at=memory_data["created_at"],
-                meta=memory_data["meta"]
-            )
-            
-            filtered_memories.append(memory_item)
-        
-        # 按相似度排序
-        filtered_memories.sort(key=lambda x: x.similarity, reverse=True)
-        
-        # 限制返回数量
-        result_memories = filtered_memories[:request.limit]
-        
-        return QueryMemoryResponse(
-            memories=result_memories,
-            total=len(filtered_memories)
-        )
-    
-    def _calculate_similarity(self, query: str, content: str) -> float:
-        """计算简单的相似度分数"""
-        query_words = set(query.lower().split())
-        content_words = set(content.lower().split())
-        
-        if not query_words:
-            return 0.0
-        
-        intersection = query_words & content_words
-        return len(intersection) / len(query_words)
-
-
 class AgenticMemoryStorage(MemoryStorageInterface):
     """
-    基于a_mem的智能记忆存储实现
+    Agentic Memory 后端
     
-    提供完整的a_mem智能记忆管理功能：
     - 自动内容分析和元数据生成
     - 语义搜索和向量检索
     - 智能记忆演化和链接
@@ -169,14 +64,12 @@ class AgenticMemoryStorage(MemoryStorageInterface):
                 api_key=api_key
             )
             self._task_counter = 1
-            # 用于存储MCP特定的映射关系
             self._mcp_mappings = {}  # memory_id -> mcp_metadata
             logger.info("Agentic Memory Storage 初始化成功")
         except Exception as e:
             raise StorageError(f"初始化Agentic Memory失败: {str(e)}")
     
     def _generate_task_id(self, related_task_id: Optional[int]) -> int:
-        """生成或使用任务ID"""
         if related_task_id:
             return related_task_id
         
@@ -185,17 +78,14 @@ class AgenticMemoryStorage(MemoryStorageInterface):
         return task_id
     
     def _generate_context_id(self, task_id: int, memory_type) -> str:
-        """生成context_id"""
         return f"{task_id}_{memory_type.value}"
     
     async def save_memory(self, request: SaveMemoryRequest) -> SaveMemoryResponse:
         """保存记忆到Agentic Memory系统"""
         try:
-            # 生成task_id和context_id
             task_id = self._generate_task_id(request.related_task_id)
             context_id = self._generate_context_id(task_id, request.memory_type)
             
-            # 准备传递给a_mem的参数
             a_mem_kwargs = {
                 'content': request.content,
                 'tags': request.tags or [],
@@ -204,7 +94,6 @@ class AgenticMemoryStorage(MemoryStorageInterface):
                 'timestamp': datetime.utcnow().strftime("%Y%m%d%H%M")
             }
             
-            # 使用a_mem的add_note方法保存记忆
             memory_id = self.agentic_memory.add_note(**a_mem_kwargs)
             if DEBUG == True:
                 memory = self.agentic_memory.read(memory_id)
@@ -213,7 +102,6 @@ class AgenticMemoryStorage(MemoryStorageInterface):
                 print(f"Auto-generated Context: {memory.context}")    # e.g., "Discussion about ML algorithms and data processing"
                 print(f"Auto-generated Tags: {memory.tags}")          # e.g., ['artificial intelligence', 'data science', 'technology']
 
-            # 存储MCP特定的映射信息
             self._mcp_mappings[memory_id] = {
                 "context_id": context_id,
                 "task_id": task_id,
@@ -368,18 +256,106 @@ class AgenticMemoryStorage(MemoryStorageInterface):
         
         # 返回conversation
         return MemoryType.CONVERSATION
+    
+
+class MockMemoryStorage(MemoryStorageInterface):
+    """
+    简化的内存存储实现（用于测试）
+    """
+    
+    def __init__(self):
+        self._memories = {}
+        self._task_counter = 1
+    
+    async def save_memory(self, request: SaveMemoryRequest) -> SaveMemoryResponse:
+        """保存记忆到内存"""
+        from datetime import datetime
+        
+        task_id = request.related_task_id or self._task_counter
+        if not request.related_task_id:
+            self._task_counter += 1
+        
+        context_id = f"{task_id}_{request.memory_type.value}"
+        
+        created_at = datetime.utcnow()
+        
+        memory_data = {
+            "task_id": task_id,
+            "memory_type": request.memory_type,
+            "content": request.content,
+            "created_at": created_at,
+            "meta": {
+                "importance": request.importance.value,
+                "tags": request.tags or []
+            }
+        }
+        
+        self._memories[context_id] = memory_data
+        
+        return SaveMemoryResponse(
+            context_id=context_id,
+            task_id=task_id,
+            memory_type=request.memory_type,
+            content=request.content,
+            created_at=created_at,
+            embedding_generated=True  # Mock实现不生成嵌入
+        )
+    
+    async def query_memory(self, request: QueryMemoryRequest) -> QueryMemoryResponse:
+        """从内存中查询记忆"""
+        from ..models.memory import MemoryItem
+        
+        filtered_memories = []
+        search_text_lower = request.search_text.lower()
+        
+        for context_id, memory_data in self._memories.items():
+            if search_text_lower not in memory_data["content"].lower():
+                continue
+            
+            if request.memory_types and memory_data["memory_type"] not in request.memory_types:
+                continue
+            
+            similarity = self._calculate_similarity(request.search_text, memory_data["content"])
+            
+            if similarity < request.min_similarity:
+                continue
+            
+            memory_item = MemoryItem(
+                task_id=memory_data["task_id"],
+                memory_type=memory_data["memory_type"],
+                content=memory_data["content"],
+                similarity=similarity,
+                created_at=memory_data["created_at"],
+                meta=memory_data["meta"]
+            )
+            
+            filtered_memories.append(memory_item)
+        
+        filtered_memories.sort(key=lambda x: x.similarity, reverse=True)
+        
+        result_memories = filtered_memories[:request.limit]
+        
+        return QueryMemoryResponse(
+            memories=result_memories,
+            total=len(filtered_memories)
+        )
+    
+    def _calculate_similarity(self, query: str, content: str) -> float:
+        """计算简单的相似度分数"""
+        query_words = set(query.lower().split())
+        content_words = set(content.lower().split())
+        
+        if not query_words:
+            return 0.0
+        
+        intersection = query_words & content_words
+        return len(intersection) / len(query_words)
 
 
 def create_storage() -> MemoryStorageInterface:
     """
-    工厂函数：根据环境变量创建存储实例
-    
-    环境变量：
     - MEMORY_STORAGE=mock: 使用Mock存储（测试用）
     - 其他值或未设置: 默认使用Agentic Memory存储
-    
-    Returns:
-        MemoryStorageInterface: 存储实例
     """
     storage_type = os.getenv("MEMORY_STORAGE", "agentic").lower()
     
@@ -391,16 +367,12 @@ def create_storage() -> MemoryStorageInterface:
     if AGENTIC_MEMORY_AVAILABLE:
         try:
             logger.info("使用Agentic Memory存储（默认模式）")
-            print("正在初始化 Agentic Memory...", file=sys.stderr, flush=True)
             storage = AgenticMemoryStorage()
             print(" Agentic Memory 初始化成功!", file=sys.stderr, flush=True)
             return storage
         except Exception as e:
             logger.warning(f"Agentic Memory初始化失败，回退到Mock存储: {str(e)}")
-            print(f" Agentic Memory初始化失败: {str(e)}", file=sys.stderr, flush=True)
-            print("回退到 Mock 存储", file=sys.stderr, flush=True)
             return MockMemoryStorage()
     else:
         logger.warning("Agentic Memory不可用，使用Mock存储")
-        print(" Agentic Memory 不可用，使用 Mock 存储", file=sys.stderr, flush=True)
         return MockMemoryStorage()

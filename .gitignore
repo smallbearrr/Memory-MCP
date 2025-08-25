@@ -120,3 +120,6 @@ dmypy.json
 .pyre/
 
 instruction.md
+
+src/main.py
+src/config.py
