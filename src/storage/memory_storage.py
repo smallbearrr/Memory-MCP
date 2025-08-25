@@ -341,13 +341,13 @@ class AgenticMemoryStorage(MemoryStorageInterface):
         """从a_mem结果推断记忆类型"""
         from ..models.memory import MemoryType
         
-        # 首先尝试从category推断
+        # category推断
         category = result.get('category', '').lower()
         for memory_type in MemoryType:
             if memory_type.value in category:
                 return memory_type
         
-        # 然后尝试从tags推断
+        # tags推断
         tags = result.get('tags', [])
         for tag in tags:
             try:
@@ -355,7 +355,7 @@ class AgenticMemoryStorage(MemoryStorageInterface):
             except ValueError:
                 continue
         
-        # 最后尝试从context推断
+        # context推断
         context = result.get('context', '').lower()
         if 'conversation' in context or 'chat' in context:
             return MemoryType.CONVERSATION
@@ -366,7 +366,7 @@ class AgenticMemoryStorage(MemoryStorageInterface):
         elif 'context' in context:
             return MemoryType.CONTEXT
         
-        # 默认返回conversation
+        # 返回conversation
         return MemoryType.CONVERSATION
 
 

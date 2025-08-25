@@ -9,7 +9,6 @@ from enum import Enum
 
 
 class MemoryType(str, Enum):
-    """记忆类型枚举 - 对应task_contexts.label"""
     CONVERSATION = "conversation"
     EXPERIENCE = "experience"
     KNOWLEDGE = "knowledge"
@@ -17,7 +16,6 @@ class MemoryType(str, Enum):
 
 
 class ImportanceLevel(str, Enum):
-    """重要性级别枚举"""
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
