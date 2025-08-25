@@ -1,6 +1,18 @@
 # Memory-MCP
 
-一个基于 Model Context Protocol (MCP) 的智能记忆管理系统，为 AI 代理提供强大的记忆存储和检索能力。
+基于 Model Context Protocol (MCP) 的智能记忆管理系统，为 AI Agent提供强大的记忆存储和检索能力。
+
+## 环境配置
+
+首先设置 LLM API Key
+```
+export GLM_API_KEY=<your_api_key>
+```
+
+如无法链接 Hugging Face，可以切换国内镜像源
+```
+export HF_ENDPOINT=https://hf-mirror.com
+```
 
 ## API 说明
 
