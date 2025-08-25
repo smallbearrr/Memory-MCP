@@ -1,13 +1,12 @@
 """
 MCP Memory 系统测试
-    print(f"存储类型: {'Mock (测试模式)' if storage_type == 'mock' else 'Agentic Memory (智能模式)'}")持环境变量配置的存储类型测试
 """
 
 import asyncio
 import sys
 import os
 import logging
-# 添加项目根目录到路径
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from src.main import MCPMemoryServer
@@ -20,7 +19,7 @@ async def test_memory_system():
     
     # 显示当前存储配置
     storage_type = os.getenv("MEMORY_STORAGE", "agentic")
-    print(f"� 存储类型: {'Mock (测试模式)' if storage_type == 'mock' else 'Agentic Memory (智能模式)'}")
+    print(f"存储类型: {'Mock (测试模式)' if storage_type == 'mock' else 'Agentic Memory (智能模式)'}")
 
     # 创建服务器实例（使用新的环境变量配置）
     print("\n初始化Memory系统...")

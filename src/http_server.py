@@ -1,4 +1,4 @@
-# http_server.py
+# uvicorn src.http_server:app --host 127.0.0.1 --port 8000 --reload
 """
 HTTP proxy for MCP Memory Server
 
