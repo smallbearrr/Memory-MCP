@@ -2,8 +2,6 @@
 
 一个基于 Model Context Protocol (MCP) 的智能记忆管理系统，为 AI 代理提供强大的记忆存储和检索能力。
 
-## 安装与使用
-
 ## API 说明
 
 ### 1. 保存记忆 API
@@ -17,7 +15,7 @@
     "memory_type": "experience|knowledge|conversation|context",
     "importance": "critical|high|medium|low|temporary",
     "tags": ["标签1", "标签2"],
-    "related_task_id": 可选的任务ID
+    "related_task_id": "可选的任务ID"
 }
 ```
 
@@ -79,7 +77,7 @@
 
 **端点**: `GET /mcp/tools`
 
-### 使用流程
+## 使用流程
 
 #### 1. 启动 MCP
 
