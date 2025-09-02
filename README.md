@@ -126,6 +126,10 @@ class CustomMemoryStorage(MemoryStorageInterface):
         pass
 ```
 
+## 测试
+```
+python -m test.test_http_server
+```
 
 ## 许可证
 
