@@ -16,8 +16,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# 你的现有代码模块（保持原有结构即可）
-from .main import MCPMemoryServer, MCP_TOOLS   # 如果你的 MCP_TOOLS 在 main 内
+from .main import MCPMemoryServer, MCP_TOOLS
 from .storage.memory_storage import MemoryStorageInterface, create_storage
 from .models.memory import (
     SaveMemoryRequest,
@@ -31,7 +30,6 @@ logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="MCP Memory HTTP Proxy", version="1.0.0")
 
-# 可选：允许跨域（前端调试时很方便）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # 生产环境请收紧
@@ -49,7 +47,6 @@ holder = ServerHolder()
 
 @app.on_event("startup")
 async def on_startup():
-    # 使用你的工厂方法自动选择存储（环境变量控制）
     storage = create_storage()
     holder.server = MCPMemoryServer(storage=storage)
     logger.info("MCP Memory HTTP Proxy started.")
@@ -67,7 +64,6 @@ async def healthz():
 
 @app.get("/mcp/tools")
 async def list_tools():
-    # 直接返回你在代码里定义的 MCP_TOOLS
     return {"tools": MCP_TOOLS}
 
 # ---------- MCP 工具：HTTP 代理 ----------
@@ -82,10 +78,9 @@ async def http_save_memory(
     请求体：SaveMemoryRequest（Pydantic 自动校验）
     返回：和原来 endpoint 返回的 dict 保持一致
     """
-    # 注意：你的 handlers.save_memory_endpoint 接受 dict；这里转一下
     request_dict: Dict[str, Any] = payload.model_dump()
     result = await server.handle_save_memory(request_dict)
-    # 统一错误返回
+
     if "error" in result:
         raise HTTPException(status_code=400, detail=result)
     return result

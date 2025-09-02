@@ -365,14 +365,17 @@ def create_storage() -> MemoryStorageInterface:
     
     # 默认尝试使用Agentic Memory
     if AGENTIC_MEMORY_AVAILABLE:
-        try:
-            logger.info("使用Agentic Memory存储（默认模式）")
-            storage = AgenticMemoryStorage()
-            print(" Agentic Memory 初始化成功!", file=sys.stderr, flush=True)
-            return storage
-        except Exception as e:
-            logger.warning(f"Agentic Memory初始化失败，回退到Mock存储: {str(e)}")
-            return MockMemoryStorage()
+        if storage_type == "agentic":
+            try:
+                logger.info("使用Agentic Memory存储（默认模式）")
+                storage = AgenticMemoryStorage()
+                print(" Agentic Memory 初始化成功!", file=sys.stderr, flush=True)
+                return storage
+            except Exception as e:
+                logger.warning(f"Agentic Memory初始化失败，回退到Mock存储: {str(e)}")
+                return MockMemoryStorage()
+        if storage_type == "":
+            pass
     else:
         logger.warning("Agentic Memory不可用，使用Mock存储")
         return MockMemoryStorage()
