@@ -38,11 +38,6 @@ class StorageError(Exception):
 class AgenticMemoryStorage(MemoryStorageInterface):
     """
     Agentic Memory 后端
-    
-    - 自动内容分析和元数据生成
-    - 语义搜索和向量检索
-    - 智能记忆演化和链接
-    - ChromaDB持久化存储
     """
     
     def __init__(self, 
@@ -115,13 +110,9 @@ class AgenticMemoryStorage(MemoryStorageInterface):
             memories = []
             
             for result in search_results:
-                memory_id = result['id']
-                
-                # 构建内存项
                 memory_item = MemoryItem(
                     content=result.get('content', ''),
                 )
-                
                 memories.append(memory_item)
             
             logger.info(f"查询成功: 找到 {len(memories)} 条记忆")
@@ -135,6 +126,78 @@ class AgenticMemoryStorage(MemoryStorageInterface):
             logger.error(f"查询记忆失败: {str(e)}")
             raise StorageError(f"查询记忆失败: {str(e)}")
     
+
+from ..mem0_main.mem0 import MemoryClient
+
+class Mem0MemoryStorage(MemoryStorageInterface):
+    """
+    Mem0 后端
+    """
+    def __init__(self, api_key: Optional[str] = None):
+        # api_key = ""
+        if not api_key:
+            api_key = os.getenv("MEM0_API_KEY")
+        if not api_key:
+            raise StorageError("Mem0 API Key 未设置，请配置 MEM0_API_KEY 环境变量")
+        try:
+            self.client = MemoryClient(api_key=api_key)
+            logger.info("Mem0 Memory Storage 初始化成功")
+        except Exception as e:
+            raise StorageError(f"初始化 Mem0 MemoryClient 失败: {str(e)}")
+
+    async def save_memory(self, request: SaveMemoryRequest) -> SaveMemoryResponse:
+        """
+        保存记忆到 Mem0 系统
+        """
+        try:
+            # 按照 mem0 的接口调用
+            messages = [{"role": "user", "content": request.content}]
+            user_id = "default_user"  # 这里你可以改成 request 里额外字段
+            self.client.add(messages=messages, user_id=user_id)
+
+            logger.info("记忆保存成功 (Mem0)")
+            return SaveMemoryResponse(content=request.content)
+
+        except Exception as e:
+            logger.error(f"保存记忆失败 (Mem0): {str(e)}")
+            raise StorageError(f"保存记忆失败 (Mem0): {str(e)}")
+
+    async def query_memory(self, request: QueryMemoryRequest) -> QueryMemoryResponse:
+        """
+        从 Mem0 系统查询记忆
+        """
+        try:
+            from ..models.memory import MemoryItem
+            # mem0 search 接口
+            filters = {"user_id": "default_user"}
+            results = self.client.search(
+                query=request.search_text,
+                filters=filters,
+                version="v2"
+            )
+            # print(results)
+            # {'id': '5dfff017-5096-4c3b-9e84-642429f68aca', 'memory': 'User isolated E. coli from soil samples', 'user_id': 'default_user', 
+            # 'metadata': None, 'categories': None, 'created_at': '2025-09-02T07:51:10.501177-07:00', 'updated_at': '2025-09-02T07:51:10.573149-07:00', 
+            # 'expiration_date': None, 'structured_attributes': {'day': 2, 'hour': 14, 'year': 2025, 'month': 9, 'minute': 51, 'quarter': 3, 
+            # 'is_weekend': False, 'day_of_week': 'tuesday', 'day_of_year': 245, 'week_of_year': 36}}
+
+            memories = []
+            for result in results:
+                memory_item = MemoryItem(
+                    content=result.get('memory', ''),
+                )
+                memories.append(memory_item)
+
+            logger.info(f"查询成功 (Mem0): 找到 {len(memories)} 条记忆")
+
+            return QueryMemoryResponse(
+                memories=memories[:request.limit],
+                total=len(memories)
+            )
+
+        except Exception as e:
+            logger.error(f"查询记忆失败 (Mem0): {str(e)}")
+            raise StorageError(f"查询记忆失败 (Mem0): {str(e)}")
 
 class MockMemoryStorage(MemoryStorageInterface):
     """
@@ -235,7 +298,7 @@ def create_storage() -> MemoryStorageInterface:
     - MEMORY_STORAGE=mock: 使用Mock存储（测试用）
     - 其他值或未设置: 默认使用Agentic Memory存储
     """
-    storage_type = os.getenv("MEMORY_STORAGE", "agentic").lower()
+    storage_type = os.getenv("MEMORY_STORAGE", "mock").lower()
     
     if storage_type == "mock":
         logger.info(" 使用Mock存储（由环境变量MEMORY_STORAGE=mock指定）")
@@ -243,17 +306,24 @@ def create_storage() -> MemoryStorageInterface:
     
     # 默认尝试使用Agentic Memory
     if AGENTIC_MEMORY_AVAILABLE:
-        if storage_type == "agentic":
+        if storage_type == "amem":
             try:
-                logger.info("使用Agentic Memory存储（默认模式）")
+                logger.info("使用A-mem Memory存储")
                 storage = AgenticMemoryStorage()
-                print(" Agentic Memory 初始化成功!", file=sys.stderr, flush=True)
+                print(" A-mem Memory 初始化成功!", file=sys.stderr, flush=True)
                 return storage
             except Exception as e:
-                logger.warning(f"Agentic Memory初始化失败，回退到Mock存储: {str(e)}")
+                logger.warning(f"A-mem Memory初始化失败，回退到Mock存储: {str(e)}")
                 return MockMemoryStorage()
-        if storage_type == "":
-            pass
+        if storage_type == "mem0":
+            try:
+                logger.info("使用Mem0 Memory存储")
+                storage = Mem0MemoryStorage()
+                print(" Mem0 Memory 初始化成功!", file=sys.stderr, flush=True)
+                return storage
+            except Exception as e:
+                logger.warning(f"Mem0 Memory初始化失败，回退到Mock存储: {str(e)}")
+                return MockMemoryStorage()
     else:
         logger.warning("Agentic Memory不可用，使用Mock存储")
         return MockMemoryStorage()

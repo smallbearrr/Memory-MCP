@@ -123,3 +123,6 @@ instruction.md
 
 # src/main.py
 # src/config.py
+
+# src/a_mem
+src/mem0_main

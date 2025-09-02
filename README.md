@@ -4,14 +4,16 @@
 
 ## 环境配置
 
-首先设置 LLM API Key
+设置 LLM API Key
 ```
 export GLM_API_KEY=<your_api_key>
-```
 
-如无法链接 Hugging Face，可以切换国内镜像源
+export MEM0_API_KEY=<your_api_key>
 ```
-export HF_ENDPOINT=https://hf-mirror.com
+Memory System:
+默认MOCK测试模式
+```
+export MEMORY_STORAGE="mock"|"amem"|"mem0"
 ```
 
 ## API 说明
@@ -24,22 +26,13 @@ export HF_ENDPOINT=https://hf-mirror.com
 ```json
 {
     "content": "记忆内容",
-    "memory_type": "experience|knowledge|conversation|context",
-    "importance": "critical|high|medium|low|temporary",
-    "tags": ["标签1", "标签2"],
-    "related_task_id": "可选的任务ID"
 }
 ```
 
 **响应格式**:
 ```json
 {
-    "context_id": "生成的上下文ID",
-    "task_id": ,
-    "memory_type": "experience",
     "content": "记忆内容",
-    "created_at": "2025-01-01T00:00:00.000Z",
-    "embedding_generated": true
 }
 ```
 
@@ -51,9 +44,6 @@ export HF_ENDPOINT=https://hf-mirror.com
 ```json
 {
     "search_text": "搜索关键词",
-    "memory_types": ["experience", "knowledge"],
-    "limit": 10,
-    "min_similarity": 0.3
 }
 ```
 
@@ -62,20 +52,10 @@ export HF_ENDPOINT=https://hf-mirror.com
 {
     "memories": [
         {
-            "task_id": ,
-            "memory_type": "experience",
             "content": "记忆内容",
-            "similarity": 0.85,
-            "created_at": "2025-01-01T00:00:00.000Z",
-            "meta": {
-                "importance": "high",
-                "tags": ["e-coli", "isolation"],
-                "agentic_keywords": "关键词提取",
-                "agentic_context": "上下文分析"
-            }
         }
     ],
-    "total": 1
+    "total":
 }
 ```
 
@@ -106,18 +86,10 @@ uvicorn.run("src.http_server:app", host="127.0.0.1", port=8000)
 
 payloads = [
     {
-        "content": "The biofilm formation ability of Pseudomonas aeruginosa is significantly enhanced under hypoxic conditions",
-        "memory_type": "experience",
-        "importance": "high",
-        "tags": ["biofilm", "pseudomonas", "anaerobic"],
-        "related_task_id": 2003
+        "content": "context 1",
     },
     {
-        "content": "16S rRNA gene sequencing remains the gold standard for bacterial identification",
-        "memory_type": "conversation",
-        "importance": "medium",
-        "tags": ["16s-rRNA", "bacterial-identification"],
-        "related_task_id": 2004
+        "content": "context 2",
     }
 ]
 
@@ -130,9 +102,6 @@ for i, payload in enumerate(payloads, 1):
 ```python
 query_payload = {
     "search_text": "CRISPR gene editing technology",
-    "memory_types": ["knowledge", "conversation"],
-    "limit": 10,
-    "min_similarity": 0.4
 }
 
 r = requests.post(f"{base_url}/mcp/query_memory", json=query_payload)
