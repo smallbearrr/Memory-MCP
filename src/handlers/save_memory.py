@@ -21,7 +21,7 @@ class SaveMemoryHandler:
             
             response = await self.storage.save_memory(request)
             
-            logger.info(f"Successfully saved memory with context_id: {response.context_id}")
+            logger.info(f"Successfully saved memory")
             
             try:
                 return response.model_dump(mode='json')

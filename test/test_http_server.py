@@ -51,31 +51,18 @@ if __name__ == "__main__":
     payloads = [
         {
             "content": "Today I isolated E. coli from soil samples. The bacteria showed lactose fermentation on MacConkey agar and tested gram-negative. Planning 16S rRNA sequencing for species confirmation.",
-            "memory_type": "experience",
-            "importance": "high",
-            "tags": ["e-coli", "isolation", "soil-sample", "16s-rRNA"],
-            "related_task_id": 2001
         },
         {
             "content": "Dr. Chen mentioned that CRISPR-Cas9 can be used for precise gene editing in E. coli. She suggested trying to knockout the lacZ gene to create a white colony phenotype on X-gal plates.",
-            "memory_type": "conversation",
-            "importance": "medium",
-            "tags": ["CRISPR-Cas9", "gene-editing", "lacZ", "knockout"],
-            "related_task_id": 2002
+
         },
         {
             "content": "Observed that biofilm formation in Pseudomonas aeruginosa increases dramatically under low oxygen conditions. The bacteria switch to anaerobic metabolism and produce more exopolysaccharides.",
-            "memory_type": "experience",
-            "importance": "high",
-            "tags": ["biofilm", "Pseudomonas", "anaerobic", "exopolysaccharides"],
-            "related_task_id": 2003
+
         },
         {
             "content": "Lab meeting discussion: 16S rRNA gene sequencing is still the gold standard for bacterial identification, but MALDI-TOF mass spectrometry is faster for routine clinical diagnostics.",
-            "memory_type": "conversation",
-            "importance": "medium",
-            "tags": ["16s-rRNA", "MALDI-TOF", "bacterial-identification", "clinical-diagnostics"],
-            "related_task_id": 2004
+
         }
     ]
     
@@ -90,7 +77,6 @@ if __name__ == "__main__":
     try:
         payload = {
             "search_text": "E. coli isolation soil bacteria",
-            "memory_types": ["experience"],
             "limit": 10,
             "min_similarity": 0.3
         }

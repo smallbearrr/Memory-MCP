@@ -53,7 +53,7 @@ class AgenticMemoryStorage(MemoryStorageInterface):
                  api_key: Optional[str] = None):
         
         if not AGENTIC_MEMORY_AVAILABLE:
-            raise StorageError("Agentic Memory System不可用，请检查a_mem模块")
+            raise StorageError("Agentic Memory System不可用，初始化失败")
         
         try:
             self.agentic_memory = AgenticMemorySystem(
@@ -64,61 +64,30 @@ class AgenticMemoryStorage(MemoryStorageInterface):
                 api_key=api_key
             )
             self._task_counter = 1
-            self._mcp_mappings = {}  # memory_id -> mcp_metadata
             logger.info("Agentic Memory Storage 初始化成功")
         except Exception as e:
             raise StorageError(f"初始化Agentic Memory失败: {str(e)}")
     
-    def _generate_task_id(self, related_task_id: Optional[int]) -> int:
-        if related_task_id:
-            return related_task_id
-        
-        task_id = self._task_counter
-        self._task_counter += 1
-        return task_id
-    
-    def _generate_context_id(self, task_id: int, memory_type) -> str:
-        return f"{task_id}_{memory_type.value}"
-    
     async def save_memory(self, request: SaveMemoryRequest) -> SaveMemoryResponse:
         """保存记忆到Agentic Memory系统"""
         try:
-            task_id = self._generate_task_id(request.related_task_id)
-            context_id = self._generate_context_id(task_id, request.memory_type)
             
             a_mem_kwargs = {
                 'content': request.content,
-                'tags': request.tags or [],
-                'category': request.memory_type.value,
-                'context': f"Task {task_id}",
-                'timestamp': datetime.utcnow().strftime("%Y%m%d%H%M")
             }
             
             memory_id = self.agentic_memory.add_note(**a_mem_kwargs)
-            if DEBUG == True:
-                memory = self.agentic_memory.read(memory_id)
-                print(f"Content: {memory.content}")
-                print(f"Auto-generated Keywords: {memory.keywords}")  # e.g., ['machine learning', 'neural networks', 'datasets']
-                print(f"Auto-generated Context: {memory.context}")    # e.g., "Discussion about ML algorithms and data processing"
-                print(f"Auto-generated Tags: {memory.tags}")          # e.g., ['artificial intelligence', 'data science', 'technology']
-
-            self._mcp_mappings[memory_id] = {
-                "context_id": context_id,
-                "task_id": task_id,
-                "memory_type": request.memory_type.value,
-                "importance": request.importance.value,
-                "mcp_tags": request.tags or []
-            }
+            # if DEBUG == True:
+            #     memory = self.agentic_memory.read(memory_id)
+            #     print(f"Content: {memory.content}")
+            #     print(f"Auto-generated Keywords: {memory.keywords}")  # e.g., ['machine learning', 'neural networks', 'datasets']
+            #     print(f"Auto-generated Context: {memory.context}")    # e.g., "Discussion about ML algorithms and data processing"
+            #     print(f"Auto-generated Tags: {memory.tags}")          # e.g., ['artificial intelligence', 'data science', 'technology']
             
-            logger.info(f"记忆保存成功: context_id={context_id}, memory_id={memory_id}")
+            logger.info(f"记忆保存成功: memory_id={memory_id}")
             
             return SaveMemoryResponse(
-                context_id=context_id,
-                task_id=task_id,
-                memory_type=request.memory_type,
                 content=request.content,
-                created_at=datetime.now(),
-                embedding_generated=True  # a_mem系统会生成嵌入
             )
             
         except Exception as e:
@@ -128,134 +97,43 @@ class AgenticMemoryStorage(MemoryStorageInterface):
     async def query_memory(self, request: QueryMemoryRequest) -> QueryMemoryResponse:
         """从Agentic Memory系统查询记忆"""
         try:
-            from ..models.memory import MemoryItem, MemoryType
+            from ..models.memory import MemoryItem
             
             # 使用a_mem的search_agentic进行智能搜索
             search_results = self.agentic_memory.search_agentic(
                 query=request.search_text,
-                k=request.limit * 2  # 获取更多结果用于过滤
+                k=request.limit
             )
 
-            if DEBUG == True:
-                for result in search_results:
-                    print(f"ID: {result['id']}")
-                    print(f"Content: {result['content'][:100]}...")
-                    print(f"Tags: {result['tags']}")
-                    print("---")
+            # if DEBUG == True:
+            #     for result in search_results:
+            #         print(f"ID: {result['id']}")
+            #         print(f"Content: {result['content'][:100]}...")
+            #         print(f"Tags: {result['tags']}")
+            #         print("---")
             
             memories = []
             
             for result in search_results:
                 memory_id = result['id']
                 
-                # 获取MCP映射信息
-                mcp_info = self._mcp_mappings.get(memory_id, {})
-                task_id = mcp_info.get("task_id", 1)
-                importance = mcp_info.get("importance", "medium")
-                mcp_tags = mcp_info.get("mcp_tags", [])
-                
-                # 推断memory_type
-                memory_type_str = mcp_info.get("memory_type")
-                if memory_type_str:
-                    try:
-                        memory_type = MemoryType(memory_type_str)
-                    except ValueError:
-                        memory_type = self._infer_memory_type_from_result(result)
-                else:
-                    memory_type = self._infer_memory_type_from_result(result)
-                
-                # 记忆类型过滤
-                if request.memory_types and memory_type not in request.memory_types:
-                    continue
-                
-                # 相似度处理
-                similarity = result.get('score', 0.0)
-                # a_mem返回的是距离，需要转换为相似度
-                if similarity > 1.0:
-                    similarity = max(0.0, 1.0 - (similarity / 2.0))
-                elif similarity < 0:
-                    similarity = 0.0
-                
-                # 相似度过滤
-                if similarity < request.min_similarity:
-                    continue
-                
-                # 解析创建时间
-                try:
-                    timestamp = result.get('timestamp', '')
-                    if timestamp:
-                        created_at = datetime.strptime(timestamp, "%Y%m%d%H%M")
-                    else:
-                        created_at = datetime.utcnow()
-                except:
-                    created_at = datetime.utcnow()
-                
                 # 构建内存项
                 memory_item = MemoryItem(
-                    task_id=task_id,
-                    memory_type=memory_type,
                     content=result.get('content', ''),
-                    similarity=similarity,
-                    created_at=created_at,
-                    meta={
-                        "importance": importance,
-                        "tags": mcp_tags,
-                        "agentic_keywords": result.get('keywords', []),
-                        "agentic_context": result.get('context', ''),
-                        "agentic_category": result.get('category', ''),
-                        "agentic_tags": result.get('tags', []),
-                        "is_neighbor": result.get('is_neighbor', False)
-                    }
                 )
                 
                 memories.append(memory_item)
             
-            # 按相似度排序并限制数量
-            memories.sort(key=lambda x: x.similarity, reverse=True)
-            result_memories = memories[:request.limit]
-            
-            logger.info(f"查询成功: 找到 {len(result_memories)} 条记忆")
+            logger.info(f"查询成功: 找到 {len(memories)} 条记忆")
             
             return QueryMemoryResponse(
-                memories=result_memories,
+                memories=memories,
                 total=len(memories)
             )
             
         except Exception as e:
             logger.error(f"查询记忆失败: {str(e)}")
             raise StorageError(f"查询记忆失败: {str(e)}")
-    
-    def _infer_memory_type_from_result(self, result: Dict[str, Any]):
-        """从a_mem结果推断记忆类型"""
-        from ..models.memory import MemoryType
-        
-        # category推断
-        category = result.get('category', '').lower()
-        for memory_type in MemoryType:
-            if memory_type.value in category:
-                return memory_type
-        
-        # tags推断
-        tags = result.get('tags', [])
-        for tag in tags:
-            try:
-                return MemoryType(tag)
-            except ValueError:
-                continue
-        
-        # context推断
-        context = result.get('context', '').lower()
-        if 'conversation' in context or 'chat' in context:
-            return MemoryType.CONVERSATION
-        elif 'knowledge' in context or 'fact' in context:
-            return MemoryType.KNOWLEDGE
-        elif 'experience' in context or 'task' in context:
-            return MemoryType.EXPERIENCE
-        elif 'context' in context:
-            return MemoryType.CONTEXT
-        
-        # 返回conversation
-        return MemoryType.CONVERSATION
     
 
 class MockMemoryStorage(MemoryStorageInterface):

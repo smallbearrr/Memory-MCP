@@ -10,7 +10,6 @@ import logging
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from src.main import MCPMemoryServer
-from src.models.memory import MemoryType, ImportanceLevel
 
 async def test_memory_system():
     """测试MCP Memory系统功能"""
